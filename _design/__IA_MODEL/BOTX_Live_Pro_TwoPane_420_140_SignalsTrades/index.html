@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BOTX — TwoPane 420/140 + Señales/Trades</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body class="normal">
+<header class="app-header">
+  <div class="brand"><div class="logo">🤖</div><h1>BOTX <span>TwoPane</span></h1></div>
+  <div class="header-actions">
+    <button class="ghost" id="connectWalletBtn">Conectar wallet</button>
+    <button class="primary" id="loginBtn">Login (local)</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="trading">Trading</button>
+  <button class="tab" data-tab="arbitrage">Arbitraje triangular</button>
+  <button class="tab" data-tab="staking">Token & Staking</button>
+  <button class="tab" data-tab="settings">Ajustes</button>
+</nav>
+
+<main>
+  <!-- TRADING -->
+  <section id="trading" class="tab-pane active">
+    <div class="panel">
+      <div class="row gap">
+        <label>Par:
+          <select id="symbolSelect">
+            <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+            <option>XRPUSDT</option><option>ADAUSDT</option><option>SOLUSDT</option>
+          </select>
+        </label>
+        <label>Intervalo:
+          <select id="intervalSelect">
+            <option value="1m">1m</option><option value="5m">5m</option>
+            <option value="15m" selected>15m</option><option value="1h">1h</option><option value="4h">4h</option>
+          </select>
+        </label>
+        <button id="refreshChart" class="secondary">Actualizar</button>
+        <button id="toggleLive" class="primary">En vivo: OFF</button>
+        <span id="liveStatus" class="badge small">WS: desconectado</span>
+        <div class="spacer"></div>
+        <label>Densidad:
+          <select id="density">
+            <option value="compact">Compacta</option>
+            <option value="normal" selected>Media</option>
+            <option value="comfy">Amplia</option>
+          </select>
+        </label>
+        <div class="price-badge">Último: <strong id="lastPrice">—</strong></div>
+      </div>
+
+      <div id="chartContainer" class="chart-wrap" style="height:420px;"></div>
+      <div id="volumeContainer" class="chart-wrap" style="height:140px;margin-top:8px;"></div>
+
+      <div class="row gap responsive">
+        <div class="card">
+          <h3>Simulación DCA</h3>
+          <div class="row gap">
+            <label>Cantidad por compra: <input id="dcaAmount" type="number" min="1" value="50" /></label>
+            <label>Cada N velas: <input id="dcaEvery" type="number" min="1" value="5" /></label>
+            <button id="runDCA" class="primary">Simular</button>
+          </div>
+          <div id="dcaResult" class="mono small"></div>
+        </div>
+
+        <div class="card">
+          <h3>Simulación Grid (simple)</h3>
+          <div class="row gap">
+            <label>Niveles: <input id="gridLevels" type="number" min="2" value="6" /></label>
+            <label>Rango total (%): <input id="gridRange" type="number" min="1" value="8" /></label>
+            <button id="runGrid" class="primary">Simular</button>
+          </div>
+          <div id="gridResult" class="mono small"></div>
+        </div>
+      </div>
+
+      <div class="card" style="flex-basis:100%;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+          <h3 style="margin:0;">Panel de señales</h3>
+          <label><input type="checkbox" id="sigEma" checked /> EMA</label>
+          <label><input type="checkbox" id="sigMacd" checked /> MACD</label>
+          <label><input type="checkbox" id="sigRsi" checked /> RSI</label>
+          <label>Entrada base:
+            <select id="entryType"><option value="EMA">EMA</option><option value="MACD">MACD</option><option value="RSI">RSI</option></select>
+          </label>
+          <button id="refreshSignals" class="secondary">Generar señales</button>
+          <button id="exportSignals" class="ghost">Exportar señales</button>
+          <button id="exportTrades" class="ghost">Exportar trades</button>
+          <button id="runBacktest" class="primary">Backtest simple</button>
+          <div class="spacer"></div>
+          <div class="btn-group">
+            <button id="viewSignals" class="secondary">Ver señales</button>
+            <button id="viewTrades" class="secondary">Ver trades</button>
+          </div>
+          <button id="collapseSignals" class="ghost">Colapsar</button>
+        </div>
+
+        <div id="signalsBody">
+          <div id="signalsSummary" class="small muted" style="margin-bottom:6px;"></div>
+
+          <div class="table-scroll" id="signalsScroll">
+            <table class="table" id="signalsTable">
+              <thead><tr><th>Hora</th><th>Tipo</th><th>Dirección</th><th>Precio</th><th>Comentario</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="table-scroll hidden" id="tradesScroll">
+            <table class="table" id="tradesTable">
+              <thead>
+                <tr>
+                  <th>Entrada</th><th>Salida</th><th>Tipo</th><th>Dir</th>
+                  <th>Precio in</th><th>Precio out</th><th>Duración</th><th>PnL bruto</th><th>PnL neto</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ARBITRAGE -->
+  <section id="arbitrage" class="tab-pane">
+    <div class="panel">
+      <div class="row gap">
+        <button id="startArb" class="primary">Iniciar escáner</button>
+        <button id="stopArb" class="secondary">Parar</button>
+        <span class="small">Frecuencia: 3 s • bookTicker (bid/ask) + fees + slippage</span>
+      </div>
+      <div class="row gap">
+        <label>Moneda base: <select id="arbBase"><option>USDT</option><option>USDC</option></select></label>
+        <label>Slippage por salto (%): <input id="slippage" type="number" min="0" step="0.01" value="0.02" /></label>
+      </div>
+      <table class="table" id="arbTable">
+        <thead><tr><th>Ciclo</th><th>Rendimiento</th><th>Detalle</th><th>Hora</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="muted small">Didáctico: no considera tamaño de orden ni profundidad completa.</p>
+    </div>
+  </section>
+
+  <!-- STAKING -->
+  <section id="staking" class="tab-pane">
+    <div class="panel card">
+      <h3>Token BOTX — Staking y niveles</h3>
+      <div class="row gap">
+        <label>BOTX en staking: <input id="stakeInput" type="number" min="0" step="1" value="0" /></label>
+        <button id="saveStake" class="primary">Guardar</button>
+      </div>
+      <div id="stakeInfo" class="badge"></div>
+      <h4>Niveles</h4>
+      <ul class="levels">
+        <li>🥉 100 BOTX → 10% descuento</li>
+        <li>🥈 1.000 BOTX → 25% + señales adicionales</li>
+        <li>🥇 10.000 BOTX → 50% + bots premium</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings" class="tab-pane">
+    <div class="panel card">
+      <h3>Ajustes</h3>
+      <div class="row gap">
+        <label>Fee base exchange (taker, %): <input id="baseFee" type="number" min="0" step="0.01" value="0.10" /></label>
+        <button id="saveSettings" class="primary">Guardar ajustes</button>
+      </div>
+      <div class="small muted">Los descuentos de staking se aplican sobre este fee base.</div>
+    </div>
+    <div class="panel card danger">
+      <h4>⚠️ Aviso</h4>
+      <p>Prototipo educativo. No ejecuta órdenes reales.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="app-footer"><span>© BOTX (demo)</span></footer>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
